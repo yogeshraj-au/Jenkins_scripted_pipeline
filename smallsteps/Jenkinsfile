@@ -7,7 +7,7 @@ node {
         mvn 'clean install -DskipTests'
     }
 
-    stage('Unit Test') {
+    stage('Unit Tests') {
         mvn 'test'
     }
 
