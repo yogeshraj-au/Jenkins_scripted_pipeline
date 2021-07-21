@@ -1,0 +1,51 @@
+@Library('github.com/triologygmbh/jenkinsfile@ad12c8a9') _
+
+node('docker') { // Require a build executor with docker (label)
+
+    properties([
+            pipelineTriggers(createPipelineTriggers()),
+            disableConcurrentBuilds(),
+            buildDiscarder(logRotator(numToKeepStr: '10'))
+    ])
+
+    catchError {
+
+        stage('Checkout') {
+            checkout([$class: 'GitSCM', branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[credentialsId: 'd35497e0-4e71-4d20-bdb0-bf32b0ab5ef6', url: 'https://github.com/yogeshraj-au/simple-java-maven']]])
+        }
+
+        stage('Build') {
+            mvn 'clean install -DskipTests'
+            archiveArtifacts '**/target/*.*ar'
+        }
+
+        parallel(
+                unitTest: {
+                    stage('Unit Test') {
+                        mvn 'test'
+                    }
+                },
+                integrationTest: {
+                    stage('Integration Test') {
+                        if (isTimeTriggeredBuild()) {
+                            mvn 'verify -DskipUnitTests -Parq-wildfly-swarm '
+                        }
+                    }
+                }
+        )
+    }
+
+    // Archive Unit and integration test results, if any
+    junit allowEmptyResults: true,
+            testResults: '**/target/surefire-reports/TEST-*.xml, **/target/failsafe-reports/*.xml'
+
+    mailIfStatusChanged env.EMAIL_RECIPIENTS
+}
+
+def createPipelineTriggers() {
+    if (env.BRANCH_NAME == 'master') {
+        // Run a nightly only for master
+        return [cron('H H(0-3) * * 1-5')]
+    }
+    return []
+}
