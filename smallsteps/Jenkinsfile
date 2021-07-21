@@ -11,7 +11,7 @@ node {
         mvn 'test'
     }
 
-    stage('Integration Test') {
+    stage('Integration Tests') {
         mvn 'verify -DskipUnitTests -Parq-wildfly-swarm '
     }
 }
